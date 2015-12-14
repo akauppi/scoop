@@ -2,18 +2,15 @@ package de.zalando.scoop;
 
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Range;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 
 import java.nio.charset.Charset;
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public final class ScoopClientImpl implements ScoopClient, ScoopListener{
+final class ScoopClientImpl implements ScoopClient, ScoopListener{
 
     private int partitionId;
     private int numberOfPartitions;
@@ -36,7 +33,6 @@ public final class ScoopClientImpl implements ScoopClient, ScoopListener{
         final HashCode hashCode = HASH_FUNCTION.hashString(id, CHARSET);
         return hashCode.asInt() % numberOfPartitions == partitionId;
     }
-
 
     @Override
     public String toString() {

@@ -1,5 +1,6 @@
 package de.zalando.scoop;
 
+import akka.actor.ActorSystem;
 import com.amazonaws.regions.Regions;
 import de.zalando.scoop.config.AwsConfigurationBuilder;
 
@@ -14,10 +15,7 @@ public class App
         System.out.println("members: " + builder.groupInstanceIds(builder.autoScalingGroup("i-55b32ed8")));
         System.out.println("seed: " + builder.siblingIps("i-55b32ed8"));
 
-        //final ActorSystem system = ActorSystem.create("scoop-system",  ConfigFactory.load());
-        //system.actorOf(ScoopActor.props(Sets.newHashSet(new ScoopClientImpl())), "scoop-actor");
-
-
-        //system.awaitTermination();
+        final ActorSystem system = new Scoop().withClusterPort(25551).withRegion(Regions.EU_WEST_1).build();
+        system.awaitTermination();
     }
 }
