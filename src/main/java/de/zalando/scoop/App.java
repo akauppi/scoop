@@ -1,12 +1,16 @@
 package de.zalando.scoop;
 
-/**
- * Hello world!
- *
- */
-public class App 
+import akka.actor.ActorSystem;
+import com.google.common.collect.Sets;
+import com.typesafe.config.ConfigFactory;
+
+public class App
 {
     public static void main( String[] args ) {
-        System.out.println( "Hello World!" );
+        final ActorSystem system = ActorSystem.create("scoop-system",  ConfigFactory.load());
+        system.actorOf(ScoopActor.props(Sets.newHashSet(new ScoopClientImpl())), "scoop-actor");
+
+
+        system.awaitTermination();
     }
 }
