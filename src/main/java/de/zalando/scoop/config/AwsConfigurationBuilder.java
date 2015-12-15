@@ -12,11 +12,14 @@ import com.amazonaws.services.autoscaling.model.DescribeAutoScalingInstancesRequ
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingInstancesResult;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.*;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,7 +43,10 @@ public final class AwsConfigurationBuilder {
     private int akkaClusterPort;
 
     private static final String HTTP_META_DATA_INSTANCE_ID_URL = "http://169.254.169.254/latest/meta-data/instance-id";
+            //"http://localhost:9091/latest/meta-data/instance-id";
+            //"http://169.254.169.254/latest/meta-data/instance-id";
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AwsConfigurationBuilder.class);
 
     public AwsConfigurationBuilder(final Regions regions, final int akkaClusterPort) {
         checkNotNull(regions, "regions must not be null");
@@ -61,16 +67,24 @@ public final class AwsConfigurationBuilder {
         this.ec2.setRegion(region);
 
         this.akkaClusterPort = akkaClusterPort;
+
+        LOGGER.debug("built AwsConfigurationBuilder [builder={}]", this);
     }
 
 
     public String currentInstanceId() throws IOException {
+
+        LOGGER.debug("determining current instance id...");
+
+
         final URL url = new URL(HTTP_META_DATA_INSTANCE_ID_URL);
         final URLConnection connection = url.openConnection();
         final InputStream in = connection.getInputStream();
 
         try {
-            return IOUtils.toString(in);
+            final String instanceId = IOUtils.toString(in);
+            LOGGER.debug("current instance id is [currentInstanceId={}]", instanceId);
+            return instanceId;
         }
         finally {
             IOUtils.closeQuietly(in);
@@ -79,41 +93,55 @@ public final class AwsConfigurationBuilder {
 
 
     public String autoScalingGroup(final String instanceId) {
+
+        LOGGER.debug("determining autoscaling group for [instanceId={}]...", instanceId);
         final DescribeAutoScalingInstancesRequest request = new DescribeAutoScalingInstancesRequest();
         request.setInstanceIds(Sets.newHashSet(instanceId));
 
         final DescribeAutoScalingInstancesResult result = scaling.describeAutoScalingInstances(request);
-        return result.getAutoScalingInstances().get(0).getAutoScalingGroupName();
+        final String groupName = result.getAutoScalingInstances().get(0).getAutoScalingGroupName();
+
+        LOGGER.debug("autoscaling group for [instanceId={}] is [groupName={}]", instanceId, groupName);
+        return groupName;
     }
 
 
     public List<String> groupInstanceIds(final String groupName) {
 
+        LOGGER.debug("determining instance ids of group with [groupName={}]", groupName);
+
         final DescribeAutoScalingGroupsRequest request = new DescribeAutoScalingGroupsRequest();
         request.setAutoScalingGroupNames(Sets.newHashSet(groupName));
 
         final DescribeAutoScalingGroupsResult result = scaling.describeAutoScalingGroups(request);
-        return result.getAutoScalingGroups()
-                     .get(0)
-                     .getInstances()
-                     .stream()
-                     .map(instance -> instance.getInstanceId())
-                     .collect(Collectors.toList());
+        final List<String> instanceIds = result.getAutoScalingGroups()
+                                                .get(0)
+                                                .getInstances()
+                                                .stream()
+                                                .map(instance -> instance.getInstanceId())
+                                                .collect(Collectors.toList());
+
+        LOGGER.debug("group [groupName={}] has [instanceIds={}]", groupName, instanceIds);
+        return instanceIds;
     }
 
 
-    public Instance instanceFromId(final String id) {
+    public Instance instanceFromId(final String instanceId) {
+        LOGGER.debug("fetching instance with [instanceId={}]", instanceId);
         final DescribeInstancesRequest request = new DescribeInstancesRequest();
-        request.setInstanceIds(Sets.newHashSet(id));
+        request.setInstanceIds(Sets.newHashSet(instanceId));
         final DescribeInstancesResult result = ec2.describeInstances(request);
         return result.getReservations().get(0).getInstances().get(0);
     }
 
-
+    // TODO necessary?
     String currentIp() {
         try {
+            LOGGER.debug("determining current IP...");
             final String currentInstanceId = currentInstanceId();
-            return instanceFromId(currentInstanceId).getPrivateIpAddress();
+            final String currentIp = instanceFromId(currentInstanceId).getPrivateIpAddress();
+            LOGGER.debug("current IP is [currentIp={}]", currentIp);
+            return currentIp;
         }
         catch(final Exception e) {
             throw new ConfigException(e);
@@ -122,23 +150,33 @@ public final class AwsConfigurationBuilder {
 
 
     public List<String> siblingIps(final String instanceId) {
+        LOGGER.debug("determining siblings of [instanceId={}]", instanceId);
+
         final String groupName = autoScalingGroup(instanceId);
         final List<String> instanceIds = groupInstanceIds(groupName);
-        return  instanceIds
-                .stream()
+        final List<String> siblings = instanceIds
+                                        .stream()
                 .map(instId -> instanceFromId(instId))
                 .filter(instance -> Objects.equals(instance.getState().getName(), InstanceStateName.Running.toString()))
                 .map(instance -> instance.getPrivateIpAddress())
-                .collect(Collectors.toList());
+                                        .collect(Collectors.toList());
+
+        LOGGER.debug("found [siblings={}] of [instanceId={}]", siblings, instanceId);
+        return siblings;
     }
 
 
     List<String> seeds() {
         try {
-            return siblingIps(currentInstanceId())
+            LOGGER.debug("determining seed...");
+            List<String> seeds = siblingIps(currentInstanceId())
                     .stream()
-                    .map(ip -> format("akka.tcp://scoop-system@%s:25551", ip))
-                    .collect(Collectors.toList());
+                    .map(ip -> format("akka.tcp://scoop-system@%s:%s", ip, akkaClusterPort))
+                                    .collect(Collectors.toList());
+
+
+            LOGGER.debug("determined [seed={}]", seeds);
+            return seeds;
         }
         catch(final IOException e) {
             throw new ConfigException(e);
@@ -148,10 +186,17 @@ public final class AwsConfigurationBuilder {
     public Config build() {
         return ConfigFactory
                 .empty()
-                .withValue("akka.remote.netty.tcp.hostname", ConfigValueFactory.fromAnyRef(currentIp()))
+                .withValue("akka.remote.netty.tcp.hostname", ConfigValueFactory.fromAnyRef("localhost"))
                 .withValue("akka.cluster.seed-nodes", ConfigValueFactory.fromIterable(seeds()))
                 .withFallback(ConfigFactory.load());
     }
 
-
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("scaling", scaling)
+                .add("ec2", ec2)
+                .add("akkaClusterPort", akkaClusterPort)
+                .toString();
+    }
 }

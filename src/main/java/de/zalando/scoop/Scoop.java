@@ -9,6 +9,9 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import de.zalando.scoop.config.AwsConfigurationBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.HashSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -24,6 +27,7 @@ public final class Scoop {
 
     private static final int DEFAULT_CLUSTER_PORT = 2551;
     private static final int DEFAULT_INSTANCE_PORT = DEFAULT_CLUSTER_PORT;
+    private static final Logger LOGGER = LoggerFactory.getLogger(Scoop.class);
 
     public Scoop() {
         this.clusterPort = DEFAULT_CLUSTER_PORT;
@@ -69,6 +73,8 @@ public final class Scoop {
     }
 
     public ActorSystem build() {
+
+        LOGGER.debug("Building ActorSystem with [scoop={}]", this);
         Config config;
         if(hasAwsConfig) {
             final AwsConfigurationBuilder builder = new AwsConfigurationBuilder(region, clusterPort);
@@ -83,6 +89,7 @@ public final class Scoop {
 
         final ActorSystem system = ActorSystem.create("scoop-system",  config);
         system.actorOf(ScoopActor.props(listeners), "scoop-actor");
+        LOGGER.debug("built ActorSystem with [scoop={}]", this);
 
         return system;
     }
@@ -95,6 +102,7 @@ public final class Scoop {
                 .add("region", region)
                 .add("listeners", listeners)
                 .add("scoopClient", scoopClient)
+                .add("port", port)
                 .toString();
     }
 }
