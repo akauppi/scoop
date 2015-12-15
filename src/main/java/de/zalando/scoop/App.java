@@ -15,7 +15,12 @@ public class App
         System.out.println("members: " + builder.groupInstanceIds(builder.autoScalingGroup("i-55b32ed8")));
         System.out.println("seed: " + builder.siblingIps("i-55b32ed8"));
 
-        final ActorSystem system = new Scoop().withClusterPort(25551).withRegion(Regions.EU_WEST_1).build();
+        final ActorSystem system = new Scoop()
+                .withPort(25551)
+                .withClusterPort(25551)
+                .withRegion(Regions.EU_WEST_1)
+                .build();
+
         system.awaitTermination();
     }
 }

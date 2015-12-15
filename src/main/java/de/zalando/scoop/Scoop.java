@@ -20,13 +20,16 @@ public final class Scoop {
     private Regions region;
     private HashSet<ScoopListener> listeners;
     private ScoopClientImpl scoopClient;
+    private int port;
 
     private static final int DEFAULT_CLUSTER_PORT = 2551;
+    private static final int DEFAULT_INSTANCE_PORT = DEFAULT_CLUSTER_PORT;
 
     public Scoop() {
         this.clusterPort = DEFAULT_CLUSTER_PORT;
         this.hasAwsConfig = false;
         this.region = Regions.EU_WEST_1;
+        this.port = DEFAULT_INSTANCE_PORT;
         this.scoopClient = new ScoopClientImpl();
         this.listeners = Sets.newHashSet(scoopClient);
     }
@@ -35,6 +38,12 @@ public final class Scoop {
         checkArgument(clusterPort > 999,
                       "cluster port must be >= 1000. Got [clusterPort=%s]", clusterPort);
         this.clusterPort = clusterPort;
+        return this;
+    }
+
+    public Scoop withPort(final int port) {
+        checkArgument(port > 999, "port must be >= 1000. Got [port=%s]", port);
+        this.port = port;
         return this;
     }
 
@@ -70,7 +79,7 @@ public final class Scoop {
         }
 
         config = config.withValue("akka.remote.netty.tcp.port",
-                                  ConfigValueFactory.fromAnyRef(String.valueOf(clusterPort)));
+                                  ConfigValueFactory.fromAnyRef(String.valueOf(port)));
 
         final ActorSystem system = ActorSystem.create("scoop-system",  config);
         system.actorOf(ScoopActor.props(listeners), "scoop-actor");
