@@ -19,7 +19,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class ScoopActor extends UntypedActor {
+public final class ScoopActor extends UntypedActor {
 
     private final LoggingAdapter logger;
     private final Cluster cluster;
@@ -47,15 +47,6 @@ public class ScoopActor extends UntypedActor {
                 MemberEvent.class,
                 MemberUp.class,
                 MemberRemoved.class);
-
-/*
-        context().system()
-                .scheduler()
-                .schedule(Duration.create(0L, TimeUnit.SECONDS),
-                        Duration.create(1L, TimeUnit.SECONDS),
-                        (Runnable) () -> self().tell("CHECK", context().self()),
-                        context().system().dispatcher());
-  */
     }
 
     @Override
