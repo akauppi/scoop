@@ -80,7 +80,6 @@ contains the `cluster port` defnition and the host name to which it should bind 
 
 
 ## TODO
-- [ ] rebalance when node is unreachable
 - [ ] automated tests
 
 ## License
