@@ -40,22 +40,27 @@ public final class AwsConfigurationBuilder {
 
     private final AmazonAutoScalingClient scaling;
     private final AmazonEC2Client ec2;
+    private final String awsMetaDataInstanceIdUrl;
     private int akkaClusterPort;
 
-    private static final String HTTP_META_DATA_INSTANCE_ID_URL = "http://169.254.169.254/latest/meta-data/instance-id";
-            //"http://localhost:9091/latest/meta-data/instance-id";
-            //"http://169.254.169.254/latest/meta-data/instance-id";
+
+    public static final String DEFAULT_HTTP_META_DATA_INSTANCE_ID_URL =
+                                                                  "http://169.254.169.254/latest/meta-data/instance-id";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AwsConfigurationBuilder.class);
 
-    public AwsConfigurationBuilder(final Regions regions, final int akkaClusterPort) {
+    public AwsConfigurationBuilder(final Regions regions,
+                                   final int akkaClusterPort,
+                                   final String awsMetaDataInstanceIdUrl) {
+
         checkNotNull(regions, "regions must not be null");
 
         checkArgument(akkaClusterPort > 999,
-                      "cluster port must be >= 1000. Got [akkaClusterPort=%s]",
-                      akkaClusterPort);
+                "cluster port must be >= 1000. Got [akkaClusterPort=%s]",
+                akkaClusterPort);
 
-
+        this.awsMetaDataInstanceIdUrl = checkNotNull(awsMetaDataInstanceIdUrl,
+                                                    "AWS meta data URL to retrieve instance id must not be null");
 
         final AWSCredentialsProvider credentials = new DefaultAWSCredentialsProviderChain();
         final Region region = Region.getRegion(regions);
@@ -71,13 +76,15 @@ public final class AwsConfigurationBuilder {
         LOGGER.debug("built AwsConfigurationBuilder [builder={}]", this);
     }
 
+    public AwsConfigurationBuilder(final Regions regions, final int akkaClusterPort) {
+        this(regions, akkaClusterPort,  DEFAULT_HTTP_META_DATA_INSTANCE_ID_URL);
+    }
 
-    public String currentInstanceId() throws IOException {
 
+    String currentInstanceId() throws IOException {
         LOGGER.debug("determining current instance id...");
 
-
-        final URL url = new URL(HTTP_META_DATA_INSTANCE_ID_URL);
+        final URL url = new URL(awsMetaDataInstanceIdUrl);
         final URLConnection connection = url.openConnection();
         final InputStream in = connection.getInputStream();
 
@@ -92,9 +99,9 @@ public final class AwsConfigurationBuilder {
     }
 
 
-    public String autoScalingGroup(final String instanceId) {
-
+    String autoScalingGroup(final String instanceId) {
         LOGGER.debug("determining autoscaling group for [instanceId={}]...", instanceId);
+
         final DescribeAutoScalingInstancesRequest request = new DescribeAutoScalingInstancesRequest();
         request.setInstanceIds(Sets.newHashSet(instanceId));
 
@@ -106,8 +113,7 @@ public final class AwsConfigurationBuilder {
     }
 
 
-    public List<String> groupInstanceIds(final String groupName) {
-
+    List<String> groupInstanceIds(final String groupName) {
         LOGGER.debug("determining instance ids of group with [groupName={}]", groupName);
 
         final DescribeAutoScalingGroupsRequest request = new DescribeAutoScalingGroupsRequest();
@@ -126,7 +132,7 @@ public final class AwsConfigurationBuilder {
     }
 
 
-    public Instance instanceFromId(final String instanceId) {
+    Instance instanceFromId(final String instanceId) {
         LOGGER.debug("fetching instance with [instanceId={}]", instanceId);
         final DescribeInstancesRequest request = new DescribeInstancesRequest();
         request.setInstanceIds(Sets.newHashSet(instanceId));
@@ -134,7 +140,7 @@ public final class AwsConfigurationBuilder {
         return result.getReservations().get(0).getInstances().get(0);
     }
 
-    // TODO necessary?
+
     String currentIp() {
         try {
             LOGGER.debug("determining current IP...");
@@ -149,7 +155,7 @@ public final class AwsConfigurationBuilder {
     }
 
 
-    public List<String> siblingIps(final String instanceId) {
+    List<String> siblingIps(final String instanceId) {
         LOGGER.debug("determining siblings of [instanceId={}]", instanceId);
 
         final String groupName = autoScalingGroup(instanceId);
@@ -186,7 +192,7 @@ public final class AwsConfigurationBuilder {
     public Config build() {
         return ConfigFactory
                 .empty()
-                .withValue("akka.remote.netty.tcp.hostname", ConfigValueFactory.fromAnyRef("localhost"))
+                .withValue("akka.remote.netty.tcp.hostname", ConfigValueFactory.fromAnyRef(currentIp()))
                 .withValue("akka.cluster.seed-nodes", ConfigValueFactory.fromIterable(seeds()))
                 .withFallback(ConfigFactory.load());
     }
