@@ -19,7 +19,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ScoopActor extends UntypedActor {
+final class ScoopActor extends UntypedActor {
 
     private final LoggingAdapter logger;
     private final Cluster cluster;

@@ -4,7 +4,11 @@ package de.zalando.scoop;
 import akka.actor.ActorSystem;
 import com.amazonaws.regions.Regions;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.sun.xml.internal.ws.api.server.LazyMOMProvider;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
@@ -13,9 +17,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static de.zalando.scoop.config.AwsConfigurationBuilder.DEFAULT_HTTP_META_DATA_INSTANCE_ID_URL;
 
 public final class Scoop {
@@ -28,6 +35,7 @@ public final class Scoop {
     private int port;
     private String bindHostName;
     private String awsMetaDataInstanceIdUrl;
+    private final List<String> seeds;
 
     private static final int DEFAULT_CLUSTER_PORT = 2551;
     private static final int DEFAULT_INSTANCE_PORT = DEFAULT_CLUSTER_PORT;
@@ -40,6 +48,7 @@ public final class Scoop {
         this.port = DEFAULT_INSTANCE_PORT;
         this.scoopClient = new ScoopClientImpl();
         this.listeners = Sets.newHashSet(scoopClient);
+        this.seeds = Lists.newArrayList();
     }
 
     public Scoop withClusterPort(final int clusterPort) {
@@ -84,6 +93,19 @@ public final class Scoop {
         return this;
     }
 
+    public Scoop withSeeds(final List<String> seeds){
+        checkNotNull(seeds, "list of seed nodes must not be null");
+        checkArgument(!seeds.isEmpty(), "list of seeds must not be empty");
+        this.seeds.addAll(seeds);
+        return this;
+    }
+
+    public Scoop withSeed(final String seed){
+        checkArgument(isNullOrEmpty(seed), "seed must not be null or empty");
+        this.seeds.add(seed);
+        return this;
+    }
+
     public ScoopClient defaultClient() {
         return this.scoopClient;
     }
@@ -95,13 +117,17 @@ public final class Scoop {
 
         Config config;
         if(hasAwsConfig) {
+            checkState(seeds.isEmpty(), "CONFLICT! [seeds=%s] but automatic AWS configuration is activated", seeds);
             final AwsConfigurationBuilder builder = new AwsConfigurationBuilder(region,
                                                                                 clusterPort,
                                                                                 awsMetaDataInstanceIdUrl);
             config = builder.build();
         }
         else {
-            config = ConfigFactory.load();
+            // TODO could be done nicer e.g. suitable seeds are generated out of list of IPs
+            config = ConfigFactory
+                    .load()
+                    .withValue("akka.cluster.seed-nodes", ConfigValueFactory.fromIterable(seeds));
         }
 
         config = config.withValue("akka.remote.netty.tcp.port",
