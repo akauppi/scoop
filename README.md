@@ -14,7 +14,7 @@ One possible use case is an application subscribing with all of its instances to
 ```java
         Scoop scoop = new Scoop();
         scoop = scoop.withAwsConfig() // STUPS sepcific logic gathering seed nodes, current IP etc. for Scoop setup
-                     .withBindHostName("hecate") // host name to bind to (this is usually the docker host name (see '-h'))
+                     .withBindHostName("my-hostname") // host name to bind to (this is usually the docker host name (see '-h'))
                      .withClusterPort(25551) // port of the Scoop cluster -> all cluster nodes must be accessible via this port
                      .withPort(25551); // local node port
                      
@@ -61,6 +61,26 @@ Scoop reads AWS meta data in order to perform its AWS specific configuration. Th
     ]
 }
 ```
+
+*Important:*  Make sure your [Senza](http://stups.readthedocs.org/en/latest/components/senza.html) definition
+contains the `cluster port` defnition and the host name to which it should bind to:
+```yaml
+...
+     TaupageConfig:
+        application_version: "{{Arguments.ImageVersion}}"
+        runtime: Docker
+        source: "my-image:{{Arguments.ImageVersion}}"
+        health_check_path: /heartbeat
+        ports:
+          8080: 8080
+          25551: 25551 # <-- cluster port
+        hostname: my-hostname # <-- host name to bind to
+...
+```
+
+
+## TODO
+- [ ] automated tests
 
 ## License
 http://opensource.org/licenses/MIT
