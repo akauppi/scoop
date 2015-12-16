@@ -46,7 +46,10 @@ final class ScoopActor extends UntypedActor {
         cluster.subscribe(self(),
                 MemberEvent.class,
                 MemberUp.class,
-                MemberRemoved.class);
+                MemberRemoved.class,
+                UnreachableMember.class);
+
+        listeners.forEach(l -> l.init(cluster.readView()));
     }
 
     @Override
@@ -62,23 +65,34 @@ final class ScoopActor extends UntypedActor {
 
         if (message instanceof MemberUp) {
             final MemberUp mUp = (MemberUp) message;
-            register(mUp.member());
+            final Member member = mUp.member();
+            register(member);
+            listeners.stream().forEach(l -> l.onMemberUp(member));
         } else if (message instanceof CurrentClusterState) {
             final CurrentClusterState state = (CurrentClusterState) message;
             for (Member member : state.getMembers()) {
                 if (member.status().equals(MemberStatus.up())) {
                     register(member);
+                    listeners.stream().forEach(l -> l.onMemberUp(member));
                 }
             }
         } else if (message instanceof MemberRemoved) {
             final MemberRemoved memberRemoved = (MemberRemoved) message;
-            unregister(memberRemoved.member());
+            final Member removedMember = memberRemoved.member();
+            unregister(removedMember);
+            listeners.stream().forEach(l -> l.onMemberRemoved(removedMember));
         } else if (message instanceof Rebalanced) {
             final Rebalanced rebalanced = (Rebalanced) message;
-            for (ScoopListener listener : listeners) {
-                listener.onRebalanced(rebalanced.getPartitionId(), rebalanced.getNumberOfPartitions());
-            }
-        } else {
+            final int partitionId = rebalanced.getPartitionId();
+            final int numberOfPartitions = rebalanced.getNumberOfPartitions();
+            listeners.stream().forEach(l -> l.onRebalanced(partitionId, numberOfPartitions));
+        }
+        else if (message instanceof UnreachableMember) {
+            final UnreachableMember um = (UnreachableMember) message;
+            final Member unreachableMember = um.member();
+            listeners.stream().forEach(l -> l.onMemberUnreachable(unreachableMember));
+        }
+        else {
             logger.debug("unhandled message: {}", message);
             unhandled(message);
         }

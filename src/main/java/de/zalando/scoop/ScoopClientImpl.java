@@ -1,6 +1,8 @@
 package de.zalando.scoop;
 
 
+import akka.cluster.ClusterReadView;
+import akka.cluster.Member;
 import com.google.common.base.MoreObjects;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
@@ -14,10 +16,16 @@ final class ScoopClientImpl implements ScoopClient, ScoopListener{
 
     private int partitionId;
     private int numberOfPartitions;
+    private ClusterReadView clusterReadView;
 
     private static final Charset CHARSET = Charset.forName("UTF-8");
     private static final HashFunction HASH_FUNCTION = Hashing.murmur3_32();
 
+
+    @Override
+    public void init(final ClusterReadView clusterReadView) {
+        this.clusterReadView = clusterReadView;
+    }
 
     @Override
     public void onRebalanced(final int partitionId, final int numberOfPartitions) {
@@ -26,6 +34,18 @@ final class ScoopClientImpl implements ScoopClient, ScoopListener{
 
         this.partitionId = partitionId;
         this.numberOfPartitions = numberOfPartitions;
+    }
+
+    @Override
+    public void onMemberUp(final Member member) {
+    }
+
+    @Override
+    public void onMemberRemoved(final Member member) {
+    }
+
+    @Override
+    public void onMemberUnreachable(final Member member) {
     }
 
     @Override
