@@ -4,6 +4,9 @@ package de.zalando.scoop;
 import akka.actor.ActorSystem;
 import com.amazonaws.regions.Regions;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
@@ -15,10 +18,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.*;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static de.zalando.scoop.config.AwsConfigurationBuilder.DEFAULT_HTTP_META_DATA_INSTANCE_ID_URL;
 
@@ -32,10 +34,11 @@ public final class Scoop {
     private int port;
     private String bindHostName;
     private String awsMetaDataInstanceIdUrl;
-    private final List<String> seeds;
+    private final Set<String> seeds;
 
-    private static final int DEFAULT_CLUSTER_PORT = 2551;
-    private static final int DEFAULT_INSTANCE_PORT = DEFAULT_CLUSTER_PORT;
+    public static final int DEFAULT_CLUSTER_PORT = 2551;
+    public static final int DEFAULT_INSTANCE_PORT = DEFAULT_CLUSTER_PORT;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(Scoop.class);
 
     public Scoop() {
@@ -43,9 +46,42 @@ public final class Scoop {
         this.hasAwsConfig = false;
         this.region = Regions.EU_WEST_1;
         this.port = DEFAULT_INSTANCE_PORT;
+        this.awsMetaDataInstanceIdUrl = DEFAULT_HTTP_META_DATA_INSTANCE_ID_URL;
         this.scoopClient = new ScoopClientImpl();
         this.listeners = Sets.newHashSet(scoopClient);
-        this.seeds = Lists.newArrayList();
+        this.seeds = Sets.newHashSet();
+    }
+
+    boolean hasAwsConfig() {
+        return hasAwsConfig;
+    }
+
+    int getClusterPort() {
+        return clusterPort;
+    }
+
+    Regions getRegion() {
+        return region;
+    }
+
+    Set<ScoopListener> getListeners() {
+        return ImmutableSet.copyOf(listeners);
+    }
+
+    int getPort() {
+        return port;
+    }
+
+    String getBindHostName() {
+        return bindHostName;
+    }
+
+    String getAwsMetaDataInstanceIdUrl() {
+        return awsMetaDataInstanceIdUrl;
+    }
+
+    Set<String> getSeeds() {
+        return ImmutableSet.copyOf(seeds);
     }
 
     public Scoop withClusterPort(final int clusterPort) {
@@ -63,14 +99,15 @@ public final class Scoop {
 
     public Scoop withAwsConfig() {
         this.hasAwsConfig = true;
-        this.awsMetaDataInstanceIdUrl = DEFAULT_HTTP_META_DATA_INSTANCE_ID_URL;
         return this;
     }
 
     public Scoop withAwsConfig(final String awsMetaDataInstanceIdUrl) {
+        checkArgument(!isNullOrEmpty(awsMetaDataInstanceIdUrl),
+                      "AWS meta data URL to retrieve instance id must not be null or empty");
+
         this.hasAwsConfig = true;
-        this.awsMetaDataInstanceIdUrl = checkNotNull(awsMetaDataInstanceIdUrl,
-                                    "AWS meta data URL to retreive instance id must not be null");
+        this.awsMetaDataInstanceIdUrl = awsMetaDataInstanceIdUrl;
         return this;
     }
 
@@ -86,19 +123,22 @@ public final class Scoop {
     }
 
     public Scoop withBindHostName(final String bindHostName){
-        this.bindHostName = checkNotNull(bindHostName, "host name to bind to must not be null");
+        checkArgument(!isNullOrEmpty(bindHostName), "host name to bind to must not be null");
+        this.bindHostName = bindHostName;
         return this;
     }
 
-    public Scoop withSeeds(final List<String> seeds){
-        checkNotNull(seeds, "list of seed nodes must not be null");
-        checkArgument(!seeds.isEmpty(), "list of seeds must not be empty");
+    public Scoop withSeeds(final Set<String> seeds){
+        checkNotNull(seeds, "set of seed nodes must not be null");
+        checkArgument(!seeds.isEmpty(), "set of seeds must not be empty");
+        checkArgument(!seeds.contains(""), "set of seed nodes contains empty entries");
+
         this.seeds.addAll(seeds);
         return this;
     }
 
     public Scoop withSeed(final String seed){
-        checkArgument(isNullOrEmpty(seed), "seed must not be null or empty");
+        checkArgument(! isNullOrEmpty(seed), "seed must not be null or empty");
         this.seeds.add(seed);
         return this;
     }
@@ -107,9 +147,8 @@ public final class Scoop {
         return this.scoopClient;
     }
 
-    public ActorSystem build() {
-        LOGGER.debug("Building ActorSystem with [scoop={}]", this);
 
+    Config prepareConfig(){
         checkState(bindHostName != null, "host name to bind to is null -> use withBindHostName(\"myHostName\")");
 
         Config config;
@@ -122,20 +161,23 @@ public final class Scoop {
         }
         else {
             // TODO could be done nicer e.g. suitable seeds are generated out of list of IPs
-            config = ConfigFactory
-                    .load()
-                    .withValue("akka.cluster.seed-nodes", ConfigValueFactory.fromIterable(seeds));
+            config = ConfigFactory.load()
+                                  .withValue("akka.cluster.seed-nodes", ConfigValueFactory.fromIterable(seeds));
         }
 
-        config = config.withValue("akka.remote.netty.tcp.port",
-                                         ConfigValueFactory.fromAnyRef(String.valueOf(port)))
-                       .withValue("akka.remote.netty.tcp.bind-hostname",
-                               ConfigValueFactory.fromAnyRef(bindHostName))
-                       .withValue("akka.remote.netty.tcp.bind-port",
-                               ConfigValueFactory.fromAnyRef(String.valueOf(port)));
+        return config.withValue("akka.remote.netty.tcp.port",
+                            ConfigValueFactory.fromAnyRef(String.valueOf(port)))
+                     .withValue("akka.remote.netty.tcp.bind-hostname",
+                             ConfigValueFactory.fromAnyRef(bindHostName))
+                     .withValue("akka.remote.netty.tcp.bind-port",
+                             ConfigValueFactory.fromAnyRef(String.valueOf(port)));
 
+    }
 
+    public ActorSystem build() {
+        LOGGER.debug("Building ActorSystem with [scoop={}]", this);
 
+        final Config config = prepareConfig();
 
         LOGGER.debug("using akka configuration [config={}]", config);
 
@@ -156,6 +198,9 @@ public final class Scoop {
                 .add("listeners", listeners)
                 .add("scoopClient", scoopClient)
                 .add("port", port)
+                .add("bindHostName", bindHostName)
+                .add("awsMetaDataInstanceIdUrl", awsMetaDataInstanceIdUrl)
+                .add("seeds", seeds)
                 .toString();
     }
 }
