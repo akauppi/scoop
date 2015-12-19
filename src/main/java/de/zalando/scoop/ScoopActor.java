@@ -4,11 +4,8 @@ package de.zalando.scoop;
 import akka.actor.ActorSelection;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
-import akka.cluster.Cluster;
-import akka.cluster.ClusterEvent;
+import akka.cluster.*;
 import akka.cluster.ClusterEvent.*;
-import akka.cluster.Member;
-import akka.cluster.MemberStatus;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import com.google.common.collect.Lists;
@@ -32,6 +29,10 @@ final class ScoopActor extends UntypedActor {
         this.logger = Logging.getLogger(context().system(), this);
         this.cluster = Cluster.get(context().system());
         this.memberSet = Sets.newHashSet();
+
+        if(listeners.isEmpty()) {
+            logger.warning("list of ScoopActor listeners is empty");
+        }
     }
 
 
@@ -51,6 +52,7 @@ final class ScoopActor extends UntypedActor {
 
         listeners.forEach(l -> l.init(cluster.readView()));
     }
+
 
     @Override
     public void postStop() {
@@ -115,6 +117,7 @@ final class ScoopActor extends UntypedActor {
 
         rebalanceIfLeader();
     }
+
 
     private void rebalanceIfLeader() {
         if(cluster.readView().isLeader()) {

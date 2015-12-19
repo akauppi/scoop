@@ -33,8 +33,18 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
-/*
-http://chrisloy.net/2014/05/11/akka-cluster-ec2-autoscaling.html
+/**
+ * Assembles Akka Cluster configuration from AWS based on the current EC2 instance where
+ * this code is executed. The logic is as follows:
+ *
+ * <ul>
+ *   <li>determine current instance IP via http://169.254.169.254/latest/meta-data/</li>
+ *   <li>determine Auto Scaling group</li>
+ *   <li>determine all Auto Scaling group instances to obtain cluster seed</li>
+ *</ul>
+ *
+ * Most of the AWS related logic is taken from this article:
+ * http://chrisloy.net/2014/05/11/akka-cluster-ec2-autoscaling.html
  */
 public final class AwsConfigurationBuilder {
 

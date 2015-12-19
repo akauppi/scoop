@@ -16,37 +16,40 @@ final class ScoopClientImpl implements ScoopClient, ScoopListener{
 
     private int partitionId;
     private int numberOfPartitions;
-    private ClusterReadView clusterReadView;
 
     private static final Charset CHARSET = Charset.forName("UTF-8");
     private static final HashFunction HASH_FUNCTION = Hashing.murmur3_32();
 
-
-    @Override
-    public void init(final ClusterReadView clusterReadView) {
-        this.clusterReadView = clusterReadView;
-    }
-
     @Override
     public void onRebalanced(final int partitionId, final int numberOfPartitions) {
-        checkArgument(partitionId < numberOfPartitions, "[partitionId=%s] is higher than [numberOfPartitions=%s]", partitionId, numberOfPartitions);
-        checkArgument(partitionId >= -1, "[partitionId=%s] is negative", partitionId);
+        checkArgument(partitionId < numberOfPartitions, "[partitionId=%s] is higher than [numberOfPartitions=%s]",
+                      partitionId, numberOfPartitions);
+        checkArgument(partitionId > -1, "[partitionId=%s] is negative", partitionId);
+        checkArgument(numberOfPartitions > 0, "[numberOfPartitions=%s] must be > 0", numberOfPartitions);
 
         this.partitionId = partitionId;
         this.numberOfPartitions = numberOfPartitions;
     }
 
-    @Override
-    public void onMemberUp(final Member member) {
+    int getPartitionId() {
+        return partitionId;
+    }
+
+    int getNumberOfPartitions() {
+        return numberOfPartitions;
     }
 
     @Override
-    public void onMemberRemoved(final Member member) {
-    }
+    public void init(final ClusterReadView clusterReadView) {}
 
     @Override
-    public void onMemberUnreachable(final Member member) {
-    }
+    public void onMemberUp(final Member member) {}
+
+    @Override
+    public void onMemberRemoved(final Member member) {}
+
+    @Override
+    public void onMemberUnreachable(final Member member) {}
 
     @Override
     public boolean isHandledByMe(final String id) {
