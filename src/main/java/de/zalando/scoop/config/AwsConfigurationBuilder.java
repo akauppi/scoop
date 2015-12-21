@@ -57,6 +57,8 @@ public final class AwsConfigurationBuilder {
     public static final String DEFAULT_HTTP_META_DATA_INSTANCE_ID_URL =
                                                                   "http://169.254.169.254/latest/meta-data/instance-id";
 
+    private static final String AKKA_CONFIG_FILE = "scoop.conf";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(AwsConfigurationBuilder.class);
 
     public AwsConfigurationBuilder(final Regions regions,
@@ -204,7 +206,7 @@ public final class AwsConfigurationBuilder {
                 .empty()
                 .withValue("akka.remote.netty.tcp.hostname", ConfigValueFactory.fromAnyRef(currentIp()))
                 .withValue("akka.cluster.seed-nodes", ConfigValueFactory.fromIterable(seeds()))
-                .withFallback(ConfigFactory.load());
+                .withFallback(ConfigFactory.load(AKKA_CONFIG_FILE));
     }
 
     @Override

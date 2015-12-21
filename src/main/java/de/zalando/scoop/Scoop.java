@@ -39,6 +39,8 @@ public final class Scoop {
     public static final int DEFAULT_CLUSTER_PORT = 2551;
     public static final int DEFAULT_INSTANCE_PORT = DEFAULT_CLUSTER_PORT;
 
+    private static final String AKKA_CONFIG_FILE = "scoop.conf";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(Scoop.class);
 
     public Scoop() {
@@ -161,7 +163,7 @@ public final class Scoop {
         }
         else {
             // TODO could be done nicer e.g. suitable seeds are generated out of list of IPs
-            config = ConfigFactory.load()
+            config = ConfigFactory.load(AKKA_CONFIG_FILE)
                                   .withValue("akka.cluster.seed-nodes", ConfigValueFactory.fromIterable(seeds));
         }
 
