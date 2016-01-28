@@ -50,7 +50,7 @@ final class ScoopActor extends UntypedActor {
                 MemberRemoved.class,
                 UnreachableMember.class);
 
-        listeners.forEach(l -> l.init(cluster.readView()));
+        listeners.forEach(l -> l.init(cluster));
     }
 
 

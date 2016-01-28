@@ -1,7 +1,7 @@
 package de.zalando.scoop;
 
 
-import akka.cluster.ClusterReadView;
+import akka.cluster.Cluster;
 import akka.cluster.Member;
 import com.google.common.base.MoreObjects;
 import com.google.common.hash.HashCode;
@@ -40,7 +40,7 @@ final class ScoopClientImpl implements ScoopClient, ScoopListener{
     }
 
     @Override
-    public void init(final ClusterReadView clusterReadView) {}
+    public void init(final Cluster cluster) {}
 
     @Override
     public void onMemberUp(final Member member) {}

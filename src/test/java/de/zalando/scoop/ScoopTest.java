@@ -1,15 +1,12 @@
 package de.zalando.scoop;
 
 
-import akka.actor.ActorSystem;
-import akka.cluster.ClusterReadView;
+import akka.cluster.Cluster;
 import akka.cluster.Member;
 import com.amazonaws.regions.Regions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
-import de.zalando.scoop.config.AwsConfigurationBuilder;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -277,7 +274,7 @@ public final class ScoopTest {
 
     private static final class EmptyListener implements ScoopListener {;
         @Override
-        public void init(ClusterReadView clusterReadView) {
+        public void init(Cluster cluster) {
         }
 
         @Override
