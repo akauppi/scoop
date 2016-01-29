@@ -18,10 +18,18 @@ One possible use case is an application subscribing with all of its instances to
                      .withClusterPort(25551) // port of the Scoop cluster -> all cluster nodes must be accessible via this port
                      .withPort(25551); // local node port
                      
-        ActorSystem scoopSystem = scoop.build();
+        ActorSystem system = ActorSystem("scoop-nakadi-client", ConfigFactory.defaultApplication()
+                                                                              .withFallback(scoop.buildConfiguration()))
+        ActorRef scoopActor = scoop.startScoopActor(system)
+
         ScoopClient scoopClient = scoop.defaultClient()
+        
         // ...
         boolean shouldIprocessIt scoopClient.isHandledByMe(id);
+        
+        // add ScoopListener when ScoopActor is already running
+        ScoopListener listener = ...
+        system.eventStream().publish(new NewScoopListener(listener))
 ```
 
 ## AWS Support 

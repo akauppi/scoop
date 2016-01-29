@@ -1,6 +1,7 @@
 package de.zalando.scoop;
 
 
+import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import com.amazonaws.regions.Regions;
 import com.google.common.base.MoreObjects;
@@ -40,6 +41,7 @@ public final class Scoop {
     public static final int DEFAULT_INSTANCE_PORT = DEFAULT_CLUSTER_PORT;
 
     private static final String AKKA_CONFIG_FILE = "scoop.conf";
+
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Scoop.class);
 
@@ -176,20 +178,16 @@ public final class Scoop {
 
     }
 
-    public ActorSystem build() {
-        LOGGER.debug("Building ActorSystem with [scoop={}]", this);
 
-        final Config config = prepareConfig();
-
-        LOGGER.debug("using akka configuration [config={}]", config);
-
-        final ActorSystem system = ActorSystem.create("scoop-system",  config);
-        system.actorOf(ScoopActor.props(listeners), "scoop-actor");
-
-        LOGGER.debug("built ActorSystem with [scoop={}]", this);
-
-        return system;
+    public Config buildConfiguration() {
+        return prepareConfig();
     }
+
+    public ActorRef startScoopActor(final ActorSystem system) {
+        checkNotNull(system, "actor system must not be null");
+        return system.actorOf(ScoopActor.props(listeners), "scoop-actor");
+    }
+
 
     @Override
     public String toString() {

@@ -8,8 +8,9 @@ import akka.cluster.*;
 import akka.cluster.ClusterEvent.*;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import de.zalando.scoop.ScoopCommunication.NewScoopListener;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -20,7 +21,7 @@ final class ScoopActor extends UntypedActor {
 
     private final LoggingAdapter logger;
     private final Cluster cluster;
-    private final Set<ScoopListener> listeners;
+    private Set<ScoopListener> listeners;
     private final HashSet<ActorSelection> memberSet;
 
 
@@ -49,6 +50,8 @@ final class ScoopActor extends UntypedActor {
                 MemberUp.class,
                 MemberRemoved.class,
                 UnreachableMember.class);
+
+        context().system().eventStream().subscribe(self(), NewScoopListener.class);
 
         listeners.forEach(l -> l.init(cluster));
     }
@@ -93,6 +96,17 @@ final class ScoopActor extends UntypedActor {
             final UnreachableMember um = (UnreachableMember) message;
             final Member unreachableMember = um.member();
             listeners.stream().forEach(l -> l.onMemberUnreachable(unreachableMember));
+        }
+        else if(message instanceof NewScoopListener){
+            final NewScoopListener nsl = (NewScoopListener) message;
+            final ScoopListener listener = nsl.getListener();
+
+            listener.init(cluster);
+
+            final ImmutableSet.Builder<ScoopListener> builder = ImmutableSet.builder();
+            builder.addAll(listeners);
+            builder.add(listener);
+            listeners = builder.build();
         }
         else {
             logger.debug("unhandled message: {}", message);

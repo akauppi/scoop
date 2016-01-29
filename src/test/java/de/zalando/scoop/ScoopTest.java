@@ -260,14 +260,14 @@ public final class ScoopTest {
     public void testBuildWithoutBindHostName() throws Exception {
         scoop.withSeed("seed-1")
              .withPort(12345)
-             .build();
+             .buildConfiguration();
     }
 
     @Test(expected = IllegalStateException.class)
     public void testBuildWithConfigurationConflict() throws Exception {
            scoop.withSeed("seed-1")
                 .withAwsConfig()
-                .build();
+                .buildConfiguration();
     }
 
 
