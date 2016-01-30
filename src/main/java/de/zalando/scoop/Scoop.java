@@ -36,8 +36,9 @@ public final class Scoop {
     private String bindHostName;
     private String awsMetaDataInstanceIdUrl;
     private final Set<String> seeds;
+    private ActorRef scoopActor;
 
-    public static final int DEFAULT_CLUSTER_PORT = 2551;
+    public static final int DEFAULT_CLUSTER_PORT = 25551;
     public static final int DEFAULT_INSTANCE_PORT = DEFAULT_CLUSTER_PORT;
 
     private static final String AKKA_CONFIG_FILE = "scoop.conf";
@@ -158,6 +159,7 @@ public final class Scoop {
         Config config;
         if(hasAwsConfig) {
             checkState(seeds.isEmpty(), "CONFLICT! [seeds=%s] but automatic AWS configuration is activated", seeds);
+            LOGGER.info("fetching AWS related configuration");
             final AwsConfigurationBuilder builder = new AwsConfigurationBuilder(region,
                                                                                 clusterPort,
                                                                                 awsMetaDataInstanceIdUrl);
@@ -165,6 +167,7 @@ public final class Scoop {
         }
         else {
             // TODO could be done nicer e.g. suitable seeds are generated out of list of IPs
+            LOGGER.info("fetching configuration from current Scoop settings and {}", AKKA_CONFIG_FILE);
             config = ConfigFactory.load(AKKA_CONFIG_FILE)
                                   .withValue("akka.cluster.seed-nodes", ConfigValueFactory.fromIterable(seeds));
         }
@@ -185,7 +188,15 @@ public final class Scoop {
 
     public ActorRef startScoopActor(final ActorSystem system) {
         checkNotNull(system, "actor system must not be null");
-        return system.actorOf(ScoopActor.props(listeners), "scoop-actor");
+
+        if(scoopActor == null){
+            scoopActor = system.actorOf(ScoopActor.props(listeners), "scoop-actor");
+        }
+        else {
+            LOGGER.warn("a scoop actor is already running -> returning reference to running actor");
+        }
+
+        return scoopActor;
     }
 
 
